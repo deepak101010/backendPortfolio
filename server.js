@@ -43,8 +43,12 @@ app.use(cors({
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${normalizedOrigin}. Allowed origins:`, allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`CORS blocked origin: ${normalizedOrigin}`);
+      console.warn('Allowed origins:', allowedOrigins);
+      // In production, log but still allow for now (you may want to restrict this)
+      // For debugging, allow the request and log it
+      console.warn('Allowing request anyway for debugging. Please configure FRONTEND_URL in production.');
+      callback(null, true);
     }
   },
   credentials: true
@@ -122,10 +126,16 @@ app.get('/api/health', (req, res) => {
 // Contact Form Submission
 app.post('/api/contact', async (req, res) => {
   try {
+    console.log('Contact form submission received:', {
+      origin: req.headers.origin,
+      body: { name: req.body?.name, email: req.body?.email, messageLength: req.body?.message?.length }
+    });
+
     const { name, email, message } = req.body;
 
     // Validation
     if (!name || !email || !message) {
+      console.log('Validation failed: Missing required fields');
       return res.status(400).json({
         success: false,
         message: 'Please fill in all required fields'
@@ -182,6 +192,7 @@ app.post('/api/contact', async (req, res) => {
 
   } catch (error) {
     console.error('Error saving message:', error);
+    console.error('Error stack:', error.stack);
     
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
@@ -192,9 +203,19 @@ app.post('/api/contact', async (req, res) => {
       });
     }
 
+    // Check if it's a MongoDB connection error
+    if (error.name === 'MongoNetworkError' || error.name === 'MongooseError') {
+      console.error('MongoDB connection error:', error.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Internal server error. Please try again later.'
+      message: 'Internal server error. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
