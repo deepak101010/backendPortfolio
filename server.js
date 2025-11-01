@@ -14,7 +14,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL
-].filter(Boolean); // Remove undefined values
+].filter(Boolean).map(url => {
+  // Normalize URLs (remove trailing slash)
+  return url ? url.replace(/\/$/, '') : url;
+});
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -26,11 +29,21 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // In production, check if origin is allowed
-    if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin && origin.includes(allowed))) {
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    // Check if origin is allowed (exact match or contains)
+    const isAllowed = allowedOrigins.some(allowed => {
+      const normalizedAllowed = allowed.replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed || 
+             normalizedOrigin.includes(normalizedAllowed) ||
+             normalizedAllowed.includes(normalizedOrigin);
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, allowedOrigins);
+      console.warn(`CORS blocked origin: ${normalizedOrigin}. Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
