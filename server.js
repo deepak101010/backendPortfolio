@@ -109,7 +109,7 @@ const Message = mongoose.model('Message', messageSchema);
 // Routes
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get('https://backendportfoliodeepak.onrender.com/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'Backend server is running',
